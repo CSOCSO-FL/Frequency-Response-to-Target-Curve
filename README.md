@@ -78,10 +78,12 @@ In **REW**, export your frequency-response measurement as a TXT file using **1/6
 
 Open [Target Curve PEQ](https://databender1729.github.io/eq-target-curves/target_curve_peq.html).
 
-1. Paste your **measurement-based target curve** into the **first box**.
-2. Paste the **house curve biquad coefficients** into the **second box**.
+1. Paste your **measurement-based target curve** from [Frequency Response to Target Curve](https://csocso-fl.github.io/Frequency-Response-to-Target-Curve/) into the **first box**.
+2. Paste your **house curve biquad coefficients** from [Target Curve to Biquads](https://csocso-fl.github.io/Frequency-Response-to-Target-Curve/target-curve-to-biquads.html) into the **second box**.
 3. Click **Generate new target curve**.
 4. Review the graph, then download the combined target curve.
+5. **Import your target curve into Dirac Live and compare it against the measured response.** The goal is to preserve the speaker's natural frequency-response features, including peaks and dips, while applying your preferred tonal balance. Avoid excessive boosts, especially in the bass region and deep nulls. Check that Dirac's predicted corrected response follows your imported target curve closely. REW and Dirac measurements may differ because of microphone positions, averaging, and smoothing, so don't expect a perfect match.
+6. **Important for DLBC users:** Speakers within the same group share a target curve, and DLBC may restrict how speakers can be separated or regrouped depending on the device. Keep this in mind when creating individual target curves for different speakers.
 
 **Result:** Your original measured peaks and dips are retained, while the bass boost or high-frequency roll-off from your house curve is added to the response. The result follows the *fitted biquad approximation* of your house curve, so check the final graph before importing it into Dirac Live.
 
