@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Target Curve to Biquads</title>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#191919;background:#fff}*{box-sizing:border-box}body{margin:0}main{max-width:840px;margin:30px auto 65px;padding:0 16px}h1{font-size:32px;margin:0 0 20px}h2{font-size:19px;margin:23px 0 10px}p{line-height:1.45;margin:7px 0 15px}a{color:#2255a4}textarea{display:block;width:100%;padding:8px;font:12px/1.38 Consolas,monospace;resize:vertical;border:1px solid #888;border-radius:2px;white-space:pre;tab-size:2}textarea:focus,input:focus,select:focus{outline:2px solid #7aacee;outline-offset:1px}button{background:#f2f2f2;border:1px solid #888;border-radius:3px;font:13px Arial,sans-serif;padding:6px 12px;cursor:pointer}button:hover{background:#e5eefe}button:disabled{opacity:.5;cursor:wait}.controls{display:flex;gap:12px 20px;align-items:end;flex-wrap:wrap;margin:15px 0 9px}label{display:flex;flex-direction:column;gap:5px;font-size:13px}input[type=number],select{border:1px solid #999;padding:6px;font:14px Arial;background:#fff;border-radius:3px;width:135px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.note{font-size:13px;color:#555}.status{font-size:14px;white-space:pre-wrap;margin:12px 0;min-height:20px}.status.error{color:#a31624}.good{color:#16652b}.warn{color:#a36105}.metrics{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0}.metric{padding:10px 13px;border:1px solid #ddd;background:#fafafa;min-width:128px}.metric strong{display:block;font-size:20px}.metric small{font-size:12px;color:#555}#plot{width:100%;display:block;height:auto;border:1px solid #ddd;background:white}#plot text{font:12px Arial,Helvetica,sans-serif;fill:#454545}.legend{display:flex;gap:20px;font-size:13px;margin:9px 0 18px}.swatch{width:24px;height:3px;display:inline-block;vertical-align:middle;margin-right:6px;background:#275fc4}.swatch.fit{background:#de6928}.swatch.error{background:#777}table{border-collapse:collapse;font-size:13px;width:100%;margin:8px 0 15px}td,th{border-bottom:1px solid #ddd;padding:6px 7px;text-align:right}th:first-child,td:first-child{text-align:left}.footer{font-size:13px;border-top:1px solid #ddd;padding-top:13px;color:#444;margin-top:28px}#results[hidden]{display:none}.hint{background:#f6f8fa;padding:10px 12px;font-size:13px;margin-top:10px}#input{min-height:230px}#output{min-height:250px}@media(max-width:640px){main{margin-top:18px}h1{font-size:26px}.controls{gap:10px}.metric{min-width:110px}}
+
+.tool-nav{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 22px;padding:10px 12px;background:#f5f7fa;border:1px solid #dce2e8;border-radius:5px;font:14px Arial,Helvetica,sans-serif}
+.tool-nav a{color:#2255a4;text-decoration:none;padding:8px 10px;border-radius:4px}
+.tool-nav a:hover{text-decoration:underline;background:#e7eef9}
+.tool-nav .current{font-weight:bold;background:#e5efff;color:#173d7c;padding:8px 10px;border-radius:4px}
+</style></head><body><main>
+<h1>Target Curve to Biquads</h1>
+<nav class="tool-nav" aria-label="Audio tools"><a href="index.html">← Frequency Response to Target Curve</a><span class="current" aria-current="page">Target Curve to Biquads</span></nav>
+<p>Paste frequency and dB pairs from a Dirac target curve, or upload a <code>.targetcurve</code> / TXT file. This tool fits <strong>PEQ and shelving filters</strong> to the shape and exports <strong>REW/miniDSP-style biquad coefficients</strong> for the Target Curve PEQ generator.</p>
+<h2>1. Target curve</h2>
+<textarea id="input" spellcheck="false" aria-label="Frequency and dB pairs"></textarea>
+<div class="actions"><button type="button" id="uploadBtn">Upload target curve file</button><input type="file" id="file" accept=".targetcurve,.txt,.csv" hidden><button type="button" id="clear">Clear</button></div>
+<div class="note">Paste pairs such as <code>10 2.5</code> or upload a complete Dirac target curve (including NAME, DEVICENAME, BREAKPOINTS and frequency limits). Uploading fills the box; click <strong>Generate biquads</strong> to fit it.</div>
+<h2>2. Fitting settings</h2>
+<div class="controls"><label>Number of biquads<select id="count"><option>4</option><option>6</option><option selected>8</option><option>10</option><option>12</option><option>16</option></select></label><label>Sample rate<select id="rate"><option value="96000" selected>96,000 Hz (recommended)</option><option value="48000">48,000 Hz</option></select></label><label>Optimization quality<select id="quality"><option value="fast">Fast</option><option value="balanced" selected>Balanced</option><option value="high">High accuracy</option></select></label></div>
+<div class="note">Two filters start as low/high shelves; the rest are bell/PEQ filters. More filters can reproduce more complex curves but can also overfit. Output uses the REW/miniDSP <strong>plus-a1/plus-a2</strong> convention.</div>
+<div class="actions"><button type="button" id="generate"><strong>Generate biquads</strong></button><button type="button" id="stop" disabled>Cancel fitting</button></div>
+<div id="status" class="status" role="status" aria-live="polite">Paste a curve and click Generate biquads.</div>
+<section id="results" hidden>
+<h2>3. Original vs. fitted curve</h2>
+<div class="metrics"><div class="metric"><strong id="rms">—</strong><small>RMS error</small></div><div class="metric"><strong id="maxerr">—</strong><small>Max absolute error</small></div><div class="metric"><strong id="npoints">—</strong><small>Input breakpoints</small></div><div class="metric"><strong id="nfilt">—</strong><small>Filters</small></div></div>
+<svg id="plot" viewBox="0 0 800 340" role="img" aria-label="Original target and fitted biquad response"></svg><div class="legend"><span><i class="swatch"></i>Original</span><span><i class="swatch fit"></i>Biquad fit</span></div>
+<h2>4. Individual filter response</h2>
+<div class="note">Colored lines show each biquad separately; the black line is the summed response of all filters from the lowest to highest frequency.</div>
+<svg id="filterPlot" viewBox="0 0 800 340" role="img" aria-label="Individual biquad responses and their sum"></svg>
+<div id="filterLegend" class="legend" style="flex-wrap:wrap"></div>
+<h2>5. Biquad coefficients</h2>
+<textarea id="output" readonly spellcheck="false" aria-label="Biquad coefficients"></textarea>
+<div class="actions"><button type="button" id="download">Download biquad TXT</button><button type="button" id="copy">Copy coefficients</button><button type="button" id="comparison">Download comparison TXT</button></div>
+<h2>Filter summary</h2><div id="filterTable"></div></section>
+<div class="footer"><strong>Notes:</strong> Biquads are an approximation of the input curve, not an exact conversion. Check the plotted error, especially with sharp notches or very narrow peaks. The fitted response is measured across the logarithmic frequency range rather than just the original breakpoints. Export coefficients at the same sample rate that the receiving PEQ tool expects (normally <strong>96 kHz</strong>). The output is compatible with a REW-style parser expecting <code>biquad1,</code> followed by <code>b0,b1,b2,a1,a2</code>. This is a local browser tool; no data is uploaded.</div>
+</main>
+<script id="core">
+'use strict';
+function parseCurve(raw){
+ const lines=raw.replace(/\r/g,'').split('\n');
+ const hasBreakpoints=lines.some(s=>/^\s*BREAKPOINTS\s*$/i.test(s));
+ let section=hasBreakpoints?'outside':'pairs';
+ const pts=[];
+ const number='[+-]?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?';
+ const pairRe=new RegExp('^\\s*('+number+')\\s*[,;\\t ]+\\s*('+number+')(?:\\s*(?:[#;].*)?)?$');
+ for(let i=0;i<lines.length;i++){
+  const line=lines[i].trim();
+  if(!line||line.startsWith('#')||line.startsWith(';'))continue;
+  if(/^BREAKPOINTS\s*$/i.test(line)){section='pairs';continue;}
+  if(/^(NAME|DEVICENAME|LOWLIMITHZ|HIGHLIMITHZ)\s*$/i.test(line)){
+   section='metadata';continue;
+  }
+  if(section==='outside')continue;
+  if(section==='metadata')continue;
+  const m=pairRe.exec(line);
+  if(!m)throw Error('Expected "frequency dB" on line '+(i+1)+': '+line.slice(0,65));
+  const f=Number(m[1]), d=Number(m[2]);
+  if(!(f>0&&Number.isFinite(d)))throw Error('Invalid frequency/dB on line '+(i+1));
+  pts.push([f,d]);
+ }
+ if(pts.length<3)throw Error('At least 3 frequency/dB breakpoints are required.');
+ pts.sort((a,b)=>a[0]-b[0]);
+ for(let i=1;i<pts.length;i++)if(pts[i][0]<=pts[i-1][0])throw Error('Duplicate frequency: '+pts[i][0]+' Hz');
+ return pts;
+}
+function sampleTarget(pts,n=200){const lo=Math.log(pts[0][0]),hi=Math.log(pts.at(-1)[0]);let j=0;const fs=[],ys=[];
+ for(let i=0;i<n;i++){const x=lo+(hi-lo)*i/(n-1),f=Math.exp(x);while(j<pts.length-2&&pts[j+1][0]<f)j++;const a=pts[j],b=pts[j+1],t=Math.max(0,Math.min(1,(x-Math.log(a[0]))/(Math.log(b[0])-Math.log(a[0]))));fs.push(f);ys.push(a[1]+t*(b[1]-a[1]));}return{fs,ys};}
+function biquad(type,fc,gain,q,sr){
+ const A=Math.pow(10,gain/40),w=2*Math.PI*fc/sr,c=Math.cos(w),s=Math.sin(w);let b0,b1,b2,a0,a1,a2;
+ if(type==='PK'){const alpha=s/(2*q);b0=1+alpha*A;b1=-2*c;b2=1-alpha*A;a0=1+alpha/A;a1=-2*c;a2=1-alpha/A;}
+ else {const S=q,alpha=s/2*Math.sqrt((A+1/A)*(1/S-1)+2),k=2*Math.sqrt(A)*alpha;
+  if(type==='LS'){b0=A*((A+1)-(A-1)*c+k);b1=2*A*((A-1)-(A+1)*c);b2=A*((A+1)-(A-1)*c-k);a0=(A+1)+(A-1)*c+k;a1=-2*((A-1)+(A+1)*c);a2=(A+1)+(A-1)*c-k;}
+  else {b0=A*((A+1)+(A-1)*c+k);b1=-2*A*((A-1)+(A+1)*c);b2=A*((A+1)+(A-1)*c-k);a0=(A+1)-(A-1)*c+k;a1=2*((A-1)-(A+1)*c);a2=(A+1)-(A-1)*c-k;}}
+ return [b0/a0,b1/a0,b2/a0,a1/a0,a2/a0];
+}
+function bandDb(coeff,cs,ss){const [b0,b1,b2,a1,a2]=coeff;const c2=cs*cs-ss*ss,s2=2*cs*ss;
+ const nr=b0+b1*cs+b2*c2,ni=-(b1*ss+b2*s2),dr=1+a1*cs+a2*c2,di=-(a1*ss+a2*s2);
+ const np=nr*nr+ni*ni,dp=dr*dr+di*di;return 10*Math.log10(Math.max(1e-30,np)/Math.max(1e-30,dp));}
+function setup(samples,sr){const cos=new Float64Array(samples.fs.length),sin=new Float64Array(cos.length);for(let i=0;i<cos.length;i++){const w=2*Math.PI*samples.fs[i]/sr;cos[i]=Math.cos(w);sin[i]=Math.sin(w);}return{...samples,cos,sin,sr};}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function initial(types,env,variant){const {fs,ys,sr}=env,n=types.length,lo=fs[0],hi=fs.at(-1),xmin=Math.log(Math.max(1,lo*.6)),xmax=Math.log(Math.min(sr*.46,hi*1.4));const x=[],bounds=[];
+ const low=Math.min(ys[0],ys[Math.floor(ys.length*.14)]),high=ys.at(-1),mid=ys[Math.floor(ys.length*.5)];
+ for(let j=0;j<n;j++){
+  const typ=types[j];let hz,g,q;if(j===0){hz=Math.exp(Math.log(lo)*.55+Math.log(hi)*.45);hz=clamp(80,lo*1.05,hi*.75);g=ys[0]-mid;q=.75;}
+  else if(j===1){hz=clamp(3500,lo*1.3,hi*.95);g=ys.at(-1)-mid;q=.7;}
+  else {const t=(j-1)/(n-1);hz=Math.exp(Math.log(lo)+(Math.log(hi)-Math.log(lo))*t);const pos=Math.round(t*(ys.length-1));g=(ys[pos]-mid)*.3+(j%2===0?.1:-.1);q=.7;}
+  if(variant>0){const h= Math.sin(j*12.9898+variant*21.55);hz*=Math.exp(.24*h);g+=.28*Math.cos(j*4.21+variant*3);q=clamp(q+.08*Math.sin(j*2.3+variant),.3,1);}
+  x.push(Math.log(clamp(hz,Math.exp(xmin),Math.exp(xmax))),clamp(g,-16,16),q);
+  bounds.push([xmin,xmax],[-18,18],typ==='PK'?[.20,8]:[.25,1]);
+ }return {x,bounds};}
+function response(x,types,env){const out=new Float64Array(env.fs.length);
+ for(let j=0;j<types.length;j++){const coeff=biquad(types[j],Math.exp(x[3*j]),x[3*j+1],x[3*j+2],env.sr);
+ for(let i=0;i<out.length;i++)out[i]+=bandDb(coeff,env.cos[i],env.sin[i]);}return out;}
+function objective(pred,ys){let sum=0;for(let i=0;i<ys.length;i++){const e=pred[i]-ys[i];sum+=e*e;}return sum/ys.length;}
+function solveLinear(A,r){const n=r.length;A=A.map((row,i)=>Float64Array.from([...row,r[i]]));const x=new Float64Array(n);
+ for(let k=0;k<n;k++){let pivot=k;for(let i=k+1;i<n;i++)if(Math.abs(A[i][k])>Math.abs(A[pivot][k]))pivot=i;
+ if(Math.abs(A[pivot][k])<1e-20)return null;[A[k],A[pivot]]=[A[pivot],A[k]];const div=A[k][k];for(let j=k;j<=n;j++)A[k][j]/=div;
+ for(let i=k+1;i<n;i++){const s=A[i][k];for(let j=k;j<=n;j++)A[i][j]-=s*A[k][j];}}
+ for(let i=n-1;i>=0;i--){let v=A[i][n];for(let j=i+1;j<n;j++)v-=A[i][j]*x[j];x[i]=v;}return x;}
+function iteration(st,types,env,lambda){const {x,bounds}=st;const n=x.length,m=env.fs.length;const base=response(x,types,env),old=objective(base,env.ys),J=[];
+ for(let k=0;k<n;k++){const h=k%3===1?.005:.003;const v=x[k];x[k]=clamp(v+h,...bounds[k]);const step=x[k]-v;const trial=response(x,types,env);x[k]=v;const deriv=new Float64Array(m);if(step>1e-12)for(let i=0;i<m;i++)deriv[i]=(trial[i]-base[i])/step;J.push(deriv);}
+ const mat=Array.from({length:n},()=>new Float64Array(n)),rhs=new Float64Array(n);
+ for(let j=0;j<n;j++)for(let k=j;k<n;k++){let val=0;for(let i=0;i<m;i++)val+=J[j][i]*J[k][i];mat[j][k]=val;mat[k][j]=val;}
+ for(let j=0;j<n;j++){for(let i=0;i<m;i++)rhs[j]+=J[j][i]*(env.ys[i]-base[i]);mat[j][j]+=lambda*(1+mat[j][j]);}
+ const delta=solveLinear(mat,rhs);if(!delta)return{score:old,lambda:lambda*4,accepted:false};
+ const candidate=x.map((v,k)=>clamp(v+delta[k],...bounds[k]));const score=objective(response(candidate,types,env),env.ys);
+ if(score<old){st.x=candidate;return{score,lambda:Math.max(lambda*.55,1e-8),accepted:true};}
+ return{score:old,lambda:Math.min(lambda*4,1e8),accepted:false};}
+async function fitCurve(pts,n,sr,quality,onProgress,shouldStop){
+ if(pts.at(-1)[0]>=sr/2)throw Error('Target reaches Nyquist frequency. Increase sample rate or reduce maximum frequency.');
+ const sizes={fast:[1,75,150],balanced:[2,125,220],high:[3,180,280]},[restarts,steps,points]=sizes[quality],env=setup(sampleTarget(pts,points),sr),types=['LS','HS',...Array(n-2).fill('PK')];let best=null;
+ for(let v=0;v<restarts;v++){const st=initial(types,env,v);let lambda=.05,prev=Infinity,stagnant=0;
+  for(let it=0;it<steps;it++){
+   if(shouldStop())throw Error('Fitting canceled.');const res=iteration(st,types,env,lambda);lambda=res.lambda;
+   if(res.accepted&&prev-res.score<1e-9)stagnant++;else if(res.accepted)stagnant=0;
+   prev=res.score;
+   if(it%10===0){onProgress(v, it, restarts, steps,Math.sqrt(res.score));await new Promise(resolve=>setTimeout(resolve,0));}
+   if(stagnant>=12||lambda>1e7)break;
+  }
+  const mse=objective(response(st.x,types,env),env.ys);if(!best||mse<best.mse)best={x:[...st.x],types,mse};
+ }
+ const verification=setup(sampleTarget(pts,Math.max(400,pts.length*2)),sr),actual=response(best.x,types,verification);let s=0,max=0;
+ for(let i=0;i<actual.length;i++){const err=actual[i]-verification.ys[i];s+=err*err;max=Math.max(max,Math.abs(err));}
+ return{...best,rms:Math.sqrt(s/actual.length),max, verification,actual,sr};}
+function formatResult(result){let txt='';
+ result.types.forEach((typ,j)=>{const fc=Math.exp(result.x[3*j]),g=result.x[3*j+1],q=result.x[3*j+2],c=biquad(typ,fc,g,q,result.sr);
+ txt+=`biquad${j+1},\n`+['b0','b1','b2'].map((k,i)=>`${k}=${c[i].toFixed(15)},\n`).join('')+`a1=${(-c[3]).toFixed(15)},\na2=${(-c[4]).toFixed(15)},\n`;
+ });return txt.trimEnd()+"\n";}
+</script>
+<script>
+const $=id=>document.getElementById(id);let active=false,cancel=false,last=null,lastPts=null;
+$('clear').onclick=()=>{$('input').value='';$('file').value='';$('results').hidden=true;last=null;$('status').textContent='Input cleared.';};
+$('uploadBtn').onclick=()=>$('file').click();$('file').onchange=async()=>{const f=$('file').files[0];if(f){$('input').value=await f.text();$('results').hidden=true;last=null;$('status').className='status';$('status').textContent='Loaded '+f.name+'. Click Generate biquads.';}};
+$('stop').onclick=()=>{cancel=true;$('status').textContent='Canceling fitting…';};
+function setBusy(b){active=b;$('generate').disabled=b;$('stop').disabled=!b;$('rate').disabled=b;$('count').disabled=b;$('quality').disabled=b;}
+function download(name,content){const url=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+function draw(result){const svg=$('plot'),v=result.verification,f=v.fs,d=v.ys,a=result.actual,w=800,h=340,l=62,r=18,t=21,b=44;
+ const minF=f[0],maxF=f.at(-1),lo=Math.floor((Math.min(...d,...a)-.8)/2)*2,hi=Math.ceil((Math.max(...d,...a)+.8)/2)*2;
+ const x=hz=>l+(Math.log(hz/minF)/Math.log(maxF/minF))*(w-l-r),y=db=>t+(hi-db)/(hi-lo)*(h-t-b);
+ let html='';for(let db=Math.ceil(lo/2)*2;db<=hi;db+=2){const yy=y(db);html+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="#e4e4e4"/><text x="${l-11}" y="${yy+4}" text-anchor="end">${db}</text>`;}
+ for(const hz of [10,20,50,100,200,500,1000,2000,5000,10000,20000,24000])if(hz>=minF&&hz<=maxF){const xx=x(hz);html+=`<line x1="${xx}" y1="${t}" x2="${xx}" y2="${h-b}" stroke="#eee"/><text x="${xx}" y="${h-b+20}" text-anchor="middle">${hz>=1000?(hz/1000)+'k':hz}</text>`;}
+ const path=vals=>vals.map((db,i)=>`${i?'L':'M'}${x(f[i]).toFixed(2)} ${y(db).toFixed(2)}`).join(' ');
+ html+=`<path d="${path(d)}" fill="none" stroke="#275fc4" stroke-width="2.5"/><path d="${path(a)}" fill="none" stroke="#de6928" stroke-width="2.5" stroke-dasharray="7 4"/><text x="${w/2}" y="${h-5}" text-anchor="middle">Frequency (Hz), logarithmic</text><text x="18" y="${h/2}" text-anchor="middle" transform="rotate(-90 18 ${h/2})">dB</text>`;svg.innerHTML=html;
+}
+function drawFilterResponses(result){
+ const svg=$('filterPlot'), legend=$('filterLegend'), env=result.verification, f=env.fs;
+ const w=800,h=340,l=62,r=18,t=21,b=44;
+ const colors=['#ca3b3b','#198d65','#9153c4','#e08b20','#0089aa','#b44786','#7a9230','#555ccc','#b56c34','#2493a1','#98663a','#be5886','#697fbb','#a68f25','#4b9b6c','#9975b7'];
+ const bands=result.types.map((type,j)=>{
+  const c=biquad(type,Math.exp(result.x[3*j]),result.x[3*j+1],result.x[3*j+2],result.sr);
+  return Array.from(f,(_,i)=>bandDb(c,env.cos[i],env.sin[i]));
+ });
+ const sum=Array.from(result.actual);
+ const values=[0,...sum,...bands.flat()];
+ const lo=Math.floor((Math.min(...values)-.5)/2)*2,hi=Math.ceil((Math.max(...values)+.5)/2)*2;
+ const minF=f[0],maxF=f.at(-1),x=hz=>l+Math.log(hz/minF)/Math.log(maxF/minF)*(w-l-r),y=db=>t+(hi-db)/(hi-lo)*(h-t-b);
+ const path=vals=>vals.map((db,i)=>`${i?'L':'M'}${x(f[i]).toFixed(2)} ${y(db).toFixed(2)}`).join(' ');
+ let html='';for(let db=Math.ceil(lo/2)*2;db<=hi;db+=2){const yy=y(db);html+=`<line x1="${l}" x2="${w-r}" y1="${yy}" y2="${yy}" stroke="${db===0?'#999':'#e4e4e4'}"/><text x="${l-11}" y="${yy+4}" text-anchor="end">${db}</text>`;}
+ for(const hz of [10,20,50,100,200,500,1000,2000,5000,10000,20000,24000])if(hz>=minF&&hz<=maxF){const xx=x(hz);html+=`<line x1="${xx}" y1="${t}" x2="${xx}" y2="${h-b}" stroke="#eee"/><text x="${xx}" y="${h-b+20}" text-anchor="middle">${hz>=1000?(hz/1000)+'k':hz}</text>`;}
+ bands.forEach((vals,j)=>{html+=`<path d="${path(vals)}" fill="none" stroke="${colors[j%colors.length]}" stroke-width="1.5" opacity=".9"/>`;});
+ html+=`<path d="${path(sum)}" fill="none" stroke="#151515" stroke-width="3"/><text x="${w/2}" y="${h-5}" text-anchor="middle">Frequency (Hz), logarithmic</text><text x="18" y="${h/2}" text-anchor="middle" transform="rotate(-90 18 ${h/2})">dB</text>`;
+ svg.innerHTML=html;
+ legend.innerHTML=bands.map((_,j)=>`<span><i class="swatch" style="background:${colors[j%colors.length]}"></i>Filter ${j+1}</span>`).join('')+'<span><i class="swatch" style="background:#151515"></i>All filters combined</span>';
+}
+$('generate').onclick=async()=>{if(active)return;cancel=false;last=null;lastPts=null;$('results').hidden=true;
+ try{const pts=parseCurve($('input').value),n=Number($('count').value),sr=Number($('rate').value),quality=$('quality').value;setBusy(true);$('status').className='status';$('status').textContent=`Fitting ${n} filters to ${pts.length} breakpoints…`;await new Promise(r=>setTimeout(r,25));
+ const result=await fitCurve(pts,n,sr,quality,(v,it,restarts,steps,err)=>{$('status').textContent=`Fitting ${n} filters · pass ${v+1}/${restarts} · iteration ${it+1}/${steps} · current RMS ${err.toFixed(3)} dB`;},()=>cancel);
+ last=result;lastPts=pts;$('output').value=formatResult(result);$('rms').textContent=result.rms.toFixed(3)+' dB';$('maxerr').textContent=result.max.toFixed(3)+' dB';$('npoints').textContent=pts.length;$('nfilt').textContent=n;draw(result);drawFilterResponses(result);
+ const rows=result.types.map((type,i)=>`<tr><td>${i+1}</td><td>${type==='PK'?'Peak':type==='LS'?'Low shelf':'High shelf'}</td><td>${Math.exp(result.x[3*i]).toFixed(2)}</td><td>${result.x[3*i+1].toFixed(3)}</td><td>${result.x[3*i+2].toFixed(3)}</td></tr>`).join('');
+ $('filterTable').innerHTML=`<table><thead><tr><th>Filter</th><th>Type</th><th>Hz</th><th>Gain dB</th><th>Q / shelf slope</th></tr></thead><tbody>${rows}</tbody></table>`;
+ $('status').innerHTML=`Completed. <strong class="${result.max<.15?'good':'warn'}">${result.max<.15?'Excellent fit.':result.max<.5?'Moderate error: inspect the graph.':'Noticeable mismatch: try more filters or High accuracy.'}</strong> Fit error: ${result.rms.toFixed(3)} dB RMS, ${result.max.toFixed(3)} dB max.`;$('results').hidden=false;
+ }catch(e){$('status').className='status error';$('status').textContent=e.message;}finally{setBusy(false);}};
+$('download').onclick=()=>{if(last)download('target_curve_biquads_'+(last.sr/1000)+'kHz.txt',$('output').value);};
+$('comparison').onclick=()=>{if(!last)return;let text='Frequency_Hz Target_dB Fitted_dB Error_dB\n';last.verification.fs.forEach((f,i)=>{text+=`${f.toFixed(3)} ${last.verification.ys[i].toFixed(5)} ${last.actual[i].toFixed(5)} ${(last.actual[i]-last.verification.ys[i]).toFixed(5)}\n`;});download('target_curve_biquad_comparison.txt',text);};
+$('copy').onclick=()=>{if(!last)return;navigator.clipboard.writeText($('output').value).then(()=>$('status').textContent='Copied biquad coefficients.').catch(()=>$('output').select());};
+$('status').textContent='Paste or upload a curve, then click Generate biquads.';
+</script></body></html>
