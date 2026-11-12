@@ -15,11 +15,11 @@ Turn a Room EQ Wizard (REW) frequency response into a Dirac-compatible target cu
 - Calculates the average SPL between **500 and 2,000 Hz** and offsets that average to **0 dB**.
 - Preserves the measurement's peaks and dips, rather than inverting them.
 - Choose **6, 18, or 36 breakpoints per octave**; default is **18**.
-- Adjust output frequency range and dB decimal precision.
+- Adjust the output frequency range. You can also change the dB decimal precision, although the default setting should work fine.
 - Compare the normalized measurement with the generated curve.
 - Download a `.targetcurve` file or frequency/dB TXT.
 
-**Recommended REW export settings:** Set **1/6-octave smoothing**, select **SPL** export units, **Space** delimiter, and **REW export format**. Check **Do not include any comments or headers in the export** and **Do not include phase in the export**.
+**Recommended REW export settings:** Set **1/6-octave or Psychoacoustic smoothing**, select **SPL** export units, **Space** delimiter, and **REW export format**. Check **Do not include any comments or headers in the export** and **Do not include phase in the export**.
 
 **Important:** This exports a normalized measurement curve, not an inverse EQ correction curve.
 
@@ -52,3 +52,37 @@ Fit a target curve with PEQ and shelving filters, then export biquad coefficient
 - [Target Curve to Biquads (target-curve-to-biquads.html)](target-curve-to-biquads.html)
 
 These are standalone HTML tools; their processing runs in the browser.
+
+## Next step: Combine your measured response with a house curve
+
+Once you've created a target curve from your REW measurement, you can add a **bass boost or high-frequency roll-off** without losing the measured peaks and dips.
+
+### Step 1: Create your preferred house curve
+
+Open the [EQ Target Curve Generator](https://databender1729.github.io/eq-target-curves/).
+
+1. Change **End Hz** from **24,000** to **20,000 Hz**.
+2. Adjust **High Cutoff dB** and **End dB** to taste. For example, try **−1 dB** for High Cutoff and **−5 dB** for End.
+3. If you only want to change the high-frequency roll-off, keep **Start dB at 0 dB**. Increase it if you also want a bass boost.
+4. Click **Generate**, then copy the generated target curve.
+
+### Step 2: Convert your house curve to biquads
+
+Open [Target Curve to Biquads](https://csocso-fl.github.io/Frequency-Response-to-Target-Curve/target-curve-to-biquads.html), paste your house curve, and click **Generate biquads**. Use **96 kHz** for the sample rate, check the fitted-response graph and error, and copy the generated biquad coefficients.
+
+### Step 3: Create your measurement-based target curve
+
+In **REW**, export your frequency-response measurement as a TXT file using **1/6-octave or Psychoacoustic smoothing**, without phase or header information. Open [Frequency Response to Target Curve](https://csocso-fl.github.io/Frequency-Response-to-Target-Curve/), import the TXT file, and generate your normalized measurement curve. Copy the generated `.targetcurve` text.
+
+### Step 4: Combine both curves
+
+Open [Target Curve PEQ](https://databender1729.github.io/eq-target-curves/target_curve_peq.html).
+
+1. Paste your **measurement-based target curve** into the **first box**.
+2. Paste the **house curve biquad coefficients** into the **second box**.
+3. Click **Generate new target curve**.
+4. Review the graph, then download the combined target curve.
+
+**Result:** Your original measured peaks and dips are retained, while the bass boost or high-frequency roll-off from your house curve is added to the response. The result follows the *fitted biquad approximation* of your house curve, so check the final graph before importing it into Dirac Live.
+
+**Tip:** The two curves are additive. For example, if your measured curve is +2 dB at a frequency and your house-curve biquads add +3 dB there, the combined target will be approximately +5 dB.
