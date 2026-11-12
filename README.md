@@ -63,7 +63,7 @@ Open the [EQ Target Curve Generator](https://databender1729.github.io/eq-target-
 
 1. Change **End Hz** from **24,000** to **20,000 Hz**.
 2. Adjust **High Cutoff dB** and **End dB** to taste. For example, try **−1 dB** for High Cutoff and **−5 dB** for End.
-3. If you only want to change the high-frequency roll-off, keep **Start dB at 0 dB**. Increase it if you also want a bass boost.
+3. **Important: Keep Start dB at 0 dB (recommended).** Your measurement-based target curve already contains the measured bass response. Any additional bass boost from the house curve is **added on top of it**, potentially raising the final bass target much more than intended. In this workflow, use the house curve primarily to shape the **high-frequency roll-off**. Only increase Start dB if you deliberately want *extra* bass boost beyond what is already present in your normalized measurement.
 4. Click **Generate**, then copy the generated target curve.
 
 ### Step 2: Convert your house curve to biquads
