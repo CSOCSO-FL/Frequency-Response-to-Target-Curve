@@ -2,25 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Frequency Response to Target Curve</title>
+<title>Frequency Response to Target Curve · Curve Shaping</title>
 <style>
 :root{font-family:Arial,Helvetica,sans-serif;color:#151515;background:#fff}*{box-sizing:border-box}body{margin:0}main{max-width:920px;margin:20px auto;padding:0 26px 40px}h1{font-size:30px;margin:0 0 18px}h2{font-size:20px;margin:28px 0 12px}p{line-height:1.5}small,.hint{font-size:13px;color:#555}textarea{display:block;width:100%;min-height:195px;border:1px solid #999;font:12px/1.48 Consolas,'Courier New',monospace;padding:10px;resize:vertical;background:white;color:#111}button,select,input{font:14px Arial,Helvetica,sans-serif;border:1px solid #999;border-radius:3px;padding:8px 10px;background:#f8f8f8;color:#111}button{cursor:pointer}button:hover{background:#ededed}button:disabled{cursor:default;opacity:.55}input[type=number]{width:108px}input[type=file]{display:none}.controls{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0}.fields{display:flex;flex-wrap:wrap;gap:14px;align-items:end}label{display:flex;flex-direction:column;gap:5px;font-size:13px}.primary{font-weight:bold;background:#e5efff;border-color:#91afe5}.primary:hover{background:#d8e8ff}.status{font-size:14px;min-height:22px;margin:12px 0}.error{color:#bc2929}.success{color:#286341}.stats{display:grid;grid-template-columns:repeat(4,minmax(125px,1fr));gap:10px;margin:12px 0}.stat{border:1px solid #ddd;background:#fafafa;padding:11px}.stat b{display:block;font-size:21px;margin-bottom:3px}.stat span{font-size:12px;color:#555}.plot{border:1px solid #ddd;min-height:300px;margin:10px 0}.legend{display:flex;flex-wrap:wrap;gap:20px;font-size:13px;margin:10px 0}.swatch{display:inline-block;width:21px;border-top:3px solid;vertical-align:middle;margin-right:5px}.hidden{display:none!important}#out{min-height:230px}hr{border:0;border-top:1px solid #ddd;margin-top:30px}@media(max-width:640px){main{padding:18px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.plot{min-height:230px}h1{font-size:25px}}
-
-.tool-nav{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 22px;padding:10px 12px;background:#f5f7fa;border:1px solid #dce2e8;border-radius:5px;font:14px Arial,Helvetica,sans-serif}
-.tool-nav a{color:#2255a4;text-decoration:none;padding:8px 10px;border-radius:4px}
-.tool-nav a:hover{text-decoration:underline;background:#e7eef9}
-.tool-nav .current{font-weight:bold;background:#e5efff;color:#173d7c;padding:8px 10px;border-radius:4px}
+.shape-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.shape-card{border:1px solid #ddd;background:#f8fafc;padding:14px}.shape-card label{margin-top:10px}.shape-card input{width:100%}summary{cursor:pointer;margin-top:18px}@media(max-width:640px){.shape-grid{grid-template-columns:repeat(2,1fr)}}
+.shape-selectors{justify-content:center}
 </style>
 </head>
 <body><main>
 <h1>Frequency Response to Target Curve</h1>
-<nav class="tool-nav" aria-label="Audio tools"><span class="current" aria-current="page">Frequency Response to Target Curve</span><a href="target-curve-to-biquads.html">Target Curve to Biquads →</a></nav>
-<p>Convert a REW frequency response into a Dirac target curve. The tool measures the <b>average SPL between 500 and 2,000 Hz</b>, subtracts it from the entire response so that band's average is <b>0 dB</b>, and creates evenly spaced breakpoints on a logarithmic frequency axis.</p>
+<p>Convert a REW measurement into a Dirac target curve, with optional adjustments for treble roll-off and overall tonal balance.</p>
 <p><b>REW export settings:</b> Select <b>Use custom smoothing → 1/6 smoothing</b>, check <b>Do not include any comments or headers in the export</b>, and check <b>Do not include phase in the export</b>. Export units: <b>SPL</b>; delimiter: <b>Space</b>; number format: <b>REW export format</b>.</p>
 <h2>1. Frequency response</h2>
 <textarea id="input" spellcheck="false" placeholder="Paste REW frequency and SPL values here:&#10;15.00 70.21&#10;15.11 70.32&#10;20.00 78.5&#10;40.00 79.2&#10;80.00 75.1"></textarea>
 <div class="controls"><button id="upload">Open REW TXT file</button><input type="file" id="file" accept=".txt,.csv,.dat,.frd,.targetcurve,text/plain"><button id="clear">Clear</button></div>
-<div class="hint">Reads the first two numeric columns as frequency (Hz) and SPL (dB). Additional columns, such as phase, are ignored. REW export comments and target-curve headers are skipped.</div>
+<div class="hint">Upload a REW TXT file or paste frequency and SPL values. Your measurement must include the full 500–2,000 Hz range.</div>
 <h2>2. Conversion settings</h2>
 <div class="fields">
 <label>Breakpoints per octave<select id="density"><option value="6">6</option><option value="18" selected>18</option><option value="36">36</option></select></label>
@@ -28,24 +24,30 @@
 <label>Highest frequency (Hz)<input type="number" id="maxf" value="20000" min="1" step="any"></label>
 <label>Output dB decimals<select id="precision"><option value="1" selected>1 decimal</option><option value="2">2 decimals</option><option value="3">3 decimals</option></select></label>
 </div>
-<div class="hint" style="margin-top:9px">The 500–2,000 Hz reference average is calculated across logarithmic frequency, not by simply averaging unequally spaced rows. Output frequencies use 2 decimal places. The tool does not apply additional smoothing or EQ; export from REW with 1/6-octave smoothing. Fewer breakpoints may miss narrow peaks and dips.</div>
+<div class="hint" style="margin-top:9px">The 500–2,000 Hz average is set to 0 dB. Leave all shaping adjustments at 0 dB to preserve the normalized response.</div>
+<h2>3. Optional Curve Shaping</h2>
+<p class="hint">These controls reshape the normalized frequency response by adding dB adjustments, especially for adjusting the high-frequency roll-off. Feel free to experiment, but I recommend leaving the low frequencies unchanged for now. I use this section to give my speakers more treble roll-off. As a starting point, try setting <b>High transition to −0.5 dB</b> and <b>Treble / end to −3 dB</b>. Also try <b>Curved</b> treble transition.</p>
+<div class="shape-grid"><div class="shape-card"><b>Bass / start</b><label>Frequency (Hz)<input id="shapeStart" type="number" min="0.01" step="any" value="20"></label><label>Adjustment (dB)<input id="gainStart" type="number" step="0.5" value="0"></label></div><div class="shape-card"><b>Low transition</b><label>Frequency (Hz)<input id="shapeLow" type="number" min="0.01" step="any" value="1000"></label><label>Adjustment (dB)<input id="gainLow" type="number" step="0.5" value="0"></label></div><div class="shape-card"><b>High transition</b><label>Frequency (Hz)<input id="shapeHigh" type="number" min="0.01" step="any" value="4000"></label><label>Adjustment (dB)<input id="gainHigh" type="number" step="0.5" value="0"></label></div><div class="shape-card"><b>Treble / end</b><label>Frequency (Hz)<input id="shapeEnd" type="number" min="0.01" step="any" value="20000"></label><label>Adjustment (dB)<input id="gainEnd" type="number" step="0.5" value="0"></label></div></div><div class="fields shape-selectors" style="margin-top:12px"><label>Bass transition<select id="typeLow"><option value="log">Log-linear</option><option value="curved" selected>Curved</option><option value="linear">Linear</option><option value="cosine">Cosine</option></select></label><label>Midrange transition<select id="typeMid"><option value="log">Log-linear</option><option value="curved">Curved</option><option value="linear" selected>Linear</option><option value="cosine">Cosine</option></select></label><label>Treble transition<select id="typeHigh"><option value="log">Log-linear</option><option value="curved">Curved</option><option value="linear" selected>Linear</option><option value="cosine">Cosine</option></select></label></div><p class="hint">Adjustments below the Start frequency and above the End frequency stay at the entered dB values, within your selected output range.</p>
+<div class="controls"><button id="resetShape">Reset shaping to neutral</button></div>
 <div class="controls"><button class="primary" id="generate">Generate target curve</button></div>
 <div id="status" class="status" role="status" aria-live="polite"></div>
 <div id="result" class="hidden">
-<h2>3. Original vs. normalized response</h2>
+<h2>4. Original vs. adjusted target</h2>
 <div class="stats"><div class="stat"><b id="avg">–</b><span>500–2,000 Hz average SPL</span></div><div class="stat"><b id="points">–</b><span>Generated breakpoints</span></div><div class="stat"><b id="range">–</b><span>Output frequency range</span></div><div class="stat"><b id="maxerror">–</b><span>Max sampling deviation*</span></div></div>
 <div id="chart" class="plot"></div>
-<div class="legend"><span><i class="swatch" style="border-color:#3170c9"></i>Original response, offset to 0 dB average</span><span><i class="swatch" style="border-color:#eb873d"></i>Generated target curve</span><span><i class="swatch" style="border-color:#777;border-top-style:dashed"></i>0 dB</span></div>
-<div class="hint">*Maximum dB deviation of the generated curve, linearly interpolated between breakpoints in log-frequency, from the normalized original at measurement frequencies. It reflects undersampling, not measurement error.</div>
-<h2>4. Dirac target curve output</h2>
+<div class="legend"><span><i class="swatch" style="border-color:#3170c9"></i>Original response, offset to 0 dB average</span><span><i class="swatch" style="border-color:#eb873d"></i>Final target with shaping</span><span><i class="swatch" style="border-color:#777;border-top-style:dashed"></i>0 dB</span></div>
+<div class="hint">*Sampling deviation shows how closely the breakpoints follow the adjusted response. More breakpoints can capture finer detail.</div>
+<h2>5. Dirac target curve output</h2>
 <textarea id="out" spellcheck="false" readonly></textarea>
 <div class="controls"><button id="download">Download .targetcurve</button><button id="copy">Copy output</button><button id="downloadtxt">Download frequency/dB TXT</button></div>
 </div>
-<hr><p class="hint"><b>Notes:</b> All processing runs locally in your browser. The reference average must be covered by the input data over the full 500–2,000 Hz range. This is a normalized <i>measurement</i> curve, not an inverse correction curve: peaks remain positive and dips remain negative. To make a corrective target instead, you would need to invert the deviation separately. Sharp room nulls and notches may require denser breakpoints.</p>
+<hr><p class="hint">All processing runs locally in your browser.</p>
 </main>
 <script>
 'use strict';
-const $=id=>document.getElementById(id);let saved=null;
+const $=id=>document.getElementById(id);let saved=null,sourceBaseName='';
+function sourceBase(filename){return filename.replace(/\.[^.]+$/, '')||filename;}
+function exportName(base,kind){return (base||'REW')+'_shaped_'+(kind==='target'?'target_curve.targetcurve':'frequency_dB.txt');}
 function fmt(x,n){return (Math.abs(x)<0.5*Math.pow(10,-n)?0:x).toFixed(n)}
 function fail(msg){$('status').textContent=msg;$('status').className='status error';$('result').classList.add('hidden')}
 function parseResponse(text){
@@ -103,9 +105,100 @@ function renderChart(original,sampled,lo,hi){
  const clipped=[[lo,interp(original,lo)],...original.filter(p=>p[0]>lo&&p[0]<hi),[hi,interp(original,hi)]];
  parts.push(`<path d="${path(clipped)}" stroke="#3170c9" stroke-width="2" fill="none"/>`);
  parts.push(`<path d="${path(sampled)}" stroke="#eb873d" stroke-width="2.2" fill="none"/>`);
+ for(const [f,v] of sampled)parts.push(`<circle cx="${x(f)}" cy="${y(v)}" r="2.5" fill="#eb873d"><title>${fmt(f,2)} Hz: ${fmt(v,3)} dB</title></circle>`);
  parts.push(`<text x="${W/2}" y="${H-7}" text-anchor="middle" font-size="12" fill="#555">Frequency (Hz), logarithmic</text><text x="17" y="${H/2}" transform="rotate(-90 17 ${H/2})" text-anchor="middle" font-size="12" fill="#555">Relative level (dB)</text>`);
  $('chart').innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%;height:auto" role="img" aria-label="Normalized original response compared with generated target curve">${parts.join('')}</svg>`;
 }
+function shapeSettings(){
+ const ids=['shapeStart','shapeLow','shapeHigh','shapeEnd','gainStart','gainLow','gainHigh','gainEnd'];const c={};for(const id of ids){c[id]=Number($(id).value);if(!Number.isFinite(c[id])||$(id).value.trim()==='')throw Error('Enter a valid value for every curve-shaping field.');}
+ const f=[c.shapeStart,c.shapeLow,c.shapeHigh,c.shapeEnd];if(f.some(v=>v<=0)||f.some((v,i)=>i&&v<=f[i-1]))throw Error('Curve frequencies must increase: Start < Low transition < High transition < End.');
+ c.types=['typeLow','typeMid','typeHigh'].map(id=>$(id).value);return c;
+}
+const hertz = [
+  0, 10, 20, 30, 40, 50, 60, 70, 80, 90,
+  100, 110, 120, 130, 140, 150, 160, 180,
+  200, 220, 240, 260, 280, 300, 320, 400, 1000
+];
+const h12 = [
+  12.00000,
+  11.99847,
+  11.97586,
+  11.89152,
+  11.67647,
+  11.23689,
+  10.60702,
+  9.67786,
+  8.69714,
+  7.52952,
+  6.47994,
+  5.52354,
+  4.58757,
+  3.81589,
+  3.20677,
+  2.65650,
+  2.17104,
+  1.50948,
+  1.06201,
+  0.76508,
+  0.54504,
+  0.40228,
+  0.30884,
+  0.23642,
+  0.18059,
+  0.13766,
+  0.00000
+];
+const slopes = [
+  1,
+  0.99989,
+  0.99825,
+  0.9913,
+  0.973165,
+  0.93619,
+  0.882985,
+  0.805015,
+  0.72302,
+  0.625895,
+  0.539435,
+  0.46085,
+  0.38376,
+  0.319825,
+  0.26906,
+  0.222985,
+  0.1821895,
+  0.126487,
+  0.088828,
+  0.063887,
+  0.045447,
+  0.033507,
+  0.0257055,
+  0.01966685,
+  0.01501495,
+  0.011439228,
+  0
+];
+
+function curvedTable(values,hz){
+ if(hz<=0)return values[0];if(hz>=1000)return values.at(-1);
+ let i=0;while(hertz[i+1]<hz)i++;
+ return values[i]+(values[i+1]-values[i])*(hz-hertz[i])/(hertz[i+1]-hertz[i]);
+}
+function transitionGain(f,f0,f1,g0,g1,type){
+ if(g0===g1)return g0;
+ const t=(f-f0)/(f1-f0);
+ if(type==='curved')return g1+curvedTable(slopes,t*1000)*(g0-g1-12)+curvedTable(h12,t*1000);
+ if(type==='linear')return g0+(g1-g0)*t;
+ if(type==='cosine')return g0+(g1-g0)*(1-Math.cos(Math.PI*t))/2;
+ return g0+(g1-g0)*Math.log(f/f0)/Math.log(f1/f0);
+}
+function shapeOffset(f,c){
+ const fs=[c.shapeStart,c.shapeLow,c.shapeHigh,c.shapeEnd],gs=[c.gainStart,c.gainLow,c.gainHigh,c.gainEnd];let d;
+ if(f<=fs[0])d=gs[0];else if(f>=fs[3])d=gs[3];else{let i=0;while(f>fs[i+1])i++;d=transitionGain(f,fs[i],fs[i+1],gs[i],gs[i+1],c.types[i]);}
+ return d;
+}
+function resetShape(){for(const [id,value] of Object.entries({shapeStart:20,shapeLow:1000,shapeHigh:4000,shapeEnd:20000,gainStart:0,gainLow:0,gainHigh:0,gainEnd:0,typeLow:'curved',typeMid:'linear',typeHigh:'linear'}))$(id).value=value;if($('input').value.trim())generate();else invalidateShape();}
+function invalidateShape(){if(saved){$('status').textContent='Settings changed. Graph and downloads still show the last generated curve. Click Generate to apply changes.';$('status').className='status';}}
+
 function generate(){
  try{
   const ps=parseResponse($('input').value),avg=avgLog(ps),density=Number($('density').value),decimal=Number($('precision').value);
@@ -113,27 +206,31 @@ function generate(){
   if(!Number.isFinite(requestedLo)||!Number.isFinite(requestedHi)||requestedLo<=0||requestedLo>=requestedHi)throw Error('Enter a valid lower and upper frequency range.');
   const lo=Math.max(requestedLo,ps[0][0]),hi=Math.min(requestedHi,ps.at(-1)[0]);
   if(lo>=hi)throw Error('The selected frequency range does not overlap the measurement.');
-  const sampled=sample(ps,lo,hi,density,avg),normal=ps.map(([f,v])=>[f,v-avg]);
-  const name='Normalized REW response - '+density+' breakpoints per octave';
+  const shaping=shapeSettings();
+  const sampled=sample(ps,lo,hi,density,avg).map(([f,v])=>[f,v+shapeOffset(f,shaping)]),normal=ps.map(([f,v])=>[f,v-avg]);
+  if(sampled.some(p=>!Number.isFinite(p[1])))throw Error('Curve shaping produced an invalid level. Check frequencies and gains.');
+  const name=(sourceBaseName||'REW response')+' - shaped target - '+density+' breakpoints per octave';
   const pairs=sampled.map(([f,v])=>`${fmt(f,2)} ${fmt(v,decimal)}`);
   const output=['NAME',name,'DEVICENAME','Unnamed','BREAKPOINTS',...pairs,'LOWLIMITHZ',fmt(lo,2),'HIGHLIMITHZ',fmt(hi,2)].join('\n');
-  let maxErr=0;for(const [f,v] of normal)if(f>=lo&&f<=hi)maxErr=Math.max(maxErr,Math.abs(v-interp(sampled,f)));
-  saved={output,pairs:pairs.join('\n')+'\n'};
+  let maxErr=0;for(const [f,v] of normal)if(f>=lo&&f<=hi)maxErr=Math.max(maxErr,Math.abs(v+shapeOffset(f,shaping)-interp(sampled,f)));
+  saved={output,pairs:pairs.join('\n')+'\n',sourceBaseName};
   $('out').value=output;$('avg').textContent=fmt(avg,2)+' dB';$('points').textContent=sampled.length;
   $('range').textContent=fmt(lo,0)+'–'+fmt(hi,0)+' Hz';$('maxerror').textContent=fmt(maxErr,2)+' dB';
   renderChart(normal,sampled,lo,hi);$('result').classList.remove('hidden');
-  $('status').className='status success';$('status').textContent=`Generated ${sampled.length} breakpoints. Subtracted ${fmt(avg,2)} dB from the original response.`+(lo!==requestedLo||hi!==requestedHi?' Frequency range was limited to available measurement data.':'');
+  $('status').className='status success';$('status').textContent=`Generated ${sampled.length} breakpoints. Subtracted ${fmt(avg,2)} dB from the original response, then applied your curve shaping.`+(lo!==requestedLo||hi!==requestedHi?' Frequency range was limited to available measurement data.':'');
  }catch(e){saved=null;fail(e.message)}
 }
 function download(text,name){const blob=new Blob([text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+$('resetShape').addEventListener('click',resetShape);
+for(const id of ['shapeStart','shapeLow','shapeHigh','shapeEnd','gainStart','gainLow','gainHigh','gainEnd','typeLow','typeMid','typeHigh'])$(id).addEventListener('input',invalidateShape);
 $('generate').addEventListener('click',generate);
 $('upload').addEventListener('click',()=>$('file').click());
-$('file').addEventListener('change',async()=>{const f=$('file').files?.[0];if(!f)return;try{$('input').value=await f.text();$('status').textContent='Loaded '+f.name+'. Click Generate target curve.';$('status').className='status';$('result').classList.add('hidden')}catch(e){fail('Could not load file: '+e.message)}$('file').value=''});
-$('clear').addEventListener('click',()=>{$('input').value='';$('out').value='';saved=null;$('result').classList.add('hidden');$('status').textContent='Input cleared.';$('status').className='status'});
-$('download').addEventListener('click',()=>{if(saved)download(saved.output+'\n','REW_normalized_target_curve.targetcurve')});
-$('downloadtxt').addEventListener('click',()=>{if(saved)download(saved.pairs,'REW_normalized_frequency_dB.txt')});
+$('file').addEventListener('change',async()=>{const f=$('file').files?.[0];if(!f)return;try{const text=await f.text();$('input').value=text;sourceBaseName=sourceBase(f.name);$('status').textContent='Loaded '+f.name+'. Click Generate target curve.';$('status').className='status'}catch(e){fail('Could not load file: '+e.message)}$('file').value=''});
+$('clear').addEventListener('click',()=>{$('input').value='';$('out').value='';saved=null;sourceBaseName='';$('result').classList.add('hidden');$('status').textContent='Input cleared.';$('status').className='status'});
+$('download').addEventListener('click',()=>{if(saved)download(saved.output+'\n',exportName(saved.sourceBaseName,'target'))});
+$('downloadtxt').addEventListener('click',()=>{if(saved)download(saved.pairs,exportName(saved.sourceBaseName,'txt'))});
 $('copy').addEventListener('click',async()=>{if(!saved)return;try{await navigator.clipboard.writeText(saved.output);$('status').textContent='Copied target curve.'}catch(e){$('out').focus();$('out').select();document.execCommand('copy');$('status').textContent='Selected output for copying.'}});
-for(const id of ['density','minf','maxf','precision'])$(id).addEventListener('change',()=>{if(saved){saved=null;$('result').classList.add('hidden');$('status').textContent='Settings changed. Click Generate target curve to update.';$('status').className='status'}});
-$('input').addEventListener('input',()=>{if(saved){saved=null;$('result').classList.add('hidden');$('status').textContent='Input changed. Generate again.';$('status').className='status'}});
+for(const id of ['density','minf','maxf','precision'])$(id).addEventListener('change',invalidateShape);
+$('input').addEventListener('input',invalidateShape);
 </script>
 </body></html>
